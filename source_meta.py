@@ -1,5 +1,4 @@
 import openpyxl
-from openpyxl.utils import get_column_letter
 
 class SolarMeta:
     def __init__(self, input_file_path='input_data.xlsx', sheet_name='solar'):
