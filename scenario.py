@@ -83,7 +83,7 @@ class Scenario:
             "Natural Gas": 1.0,
             "RLNG": 1.0,
             "NG": 1.0,
-            "LPG": 0.87,
+            "LPG": 1.0,
             "Bio-gas": 1.0
         }
 
