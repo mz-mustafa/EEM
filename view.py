@@ -260,10 +260,6 @@ def main():
         st.write("#### Emissions Summary")
         st.dataframe(sc.emissions_summary_df)
 
-        """
-        print("View is updated. Now writing results to output excel file" )
-        write_results_to_outputs(sc)
-        """
 
         print("Now creating in memory excel file for download")
         excel_file = generate_excel_in_memory(sc)
