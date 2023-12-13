@@ -4,14 +4,14 @@ import datetime
 from sources import GridSource, SolarSource, WindSource, GasGenSource, \
     HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource
 from scenario import Scenario
-from utilities import write_results_to_outputs
+from utilities import write_results_to_outputs, generate_excel_in_memory
 
 
 def main():
     # Title and Logo
     st.title("KPWS- Energy Economic Modeling")
 
-    st.write(f"## Client: Pakistan Cables Limited")
+    st.write(f"## Client: Client Name Here")
 
     # Scenario Inputs
     st.write("## Scenario Inputs")
@@ -260,8 +260,17 @@ def main():
         st.write("#### Emissions Summary")
         st.dataframe(sc.emissions_summary_df)
 
-        print("View is updated. Now writing results to outputs." )
+        print("View is updated. Now writing results to output excel file" )
         write_results_to_outputs(sc)
+
+        print("Now creating in memory excel file for download")
+        excel_file = generate_excel_in_memory(sc)
+        st.download_button(
+            label="Download Excel File",
+            data=excel_file,
+            file_name="output.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
 
 
 main()

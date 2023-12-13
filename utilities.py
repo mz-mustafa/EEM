@@ -1,23 +1,11 @@
 from scenario import Scenario
+from io import BytesIO
 from openpyxl import load_workbook
 import pandas as pd
 from sources import GridSource, SolarSource, WindSource, GasGenSource, \
     HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource
 
-
-def write_df_to_excel_sheet(df, sheet_name, file_name='outputs.xlsx'):
-    # Load the workbook
-    book = load_workbook(file_name)
-    if sheet_name in book.sheetnames:
-        del book[sheet_name]
-    book.save(file_name)
-
-    # Now, write the DataFrame to the Excel sheet using pandas
-    with pd.ExcelWriter(file_name, engine='openpyxl', mode='a') as writer:
-        df.to_excel(writer, sheet_name=sheet_name, index=False)
-
-
-def write_results_to_outputs(sc):
+def get_dataframes_and_sheets(sc):
     dataframes = [sc.scenario_spec,
                   sc.power_df,
                   sc.energy_df,
@@ -32,14 +20,35 @@ def write_results_to_outputs(sc):
                   sc.opex_summary_df,
                   sc.opex_summary_concise_df
                   ]
-
     sheets = ['scenario', 'power', 'energy', 'capex', 'opex', 'emissions',
               'summary', 'power_summary', 'energy_summary', 'energy_summary_concise',
               'emissions_summary', 'opex_summary', 'opex_summary_concise']
+    return dataframes, sheets
 
-    # Write each DataFrame to its respective Excel sheet
+def write_df_to_excel_sheet(df, sheet_name, file_name='outputs.xlsx'):
+    # Load the workbook
+    book = load_workbook(file_name)
+    if sheet_name in book.sheetnames:
+        del book[sheet_name]
+    book.save(file_name)
+
+    # Now, write the DataFrame to the Excel sheet using pandas
+    with pd.ExcelWriter(file_name, engine='openpyxl', mode='a') as writer:
+        df.to_excel(writer, sheet_name=sheet_name, index=False)
+
+def write_results_to_outputs(sc):
+    dataframes, sheets = get_dataframes_and_sheets(sc)
     for df, sheet in zip(dataframes, sheets):
         write_df_to_excel_sheet(df, sheet)
+
+def generate_excel_in_memory(sc):
+    dataframes, sheets = get_dataframes_and_sheets(sc)
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        for df, sheet in zip(dataframes, sheets):
+            df.to_excel(writer, sheet_name=sheet, index=False)
+    output.seek(0)
+    return output
 
 ##TEST CODE
 #create scenario, extract inputs
