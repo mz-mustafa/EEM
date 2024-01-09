@@ -1,12 +1,13 @@
 from source_meta import SolarMeta, WindMeta, GridMeta, \
-    GasGenMeta, HFOGenMeta, TriFuelGenMeta, BESSMeta, DGenMeta
+    GasGenMeta, HFOGenMeta, TriFuelGenMeta, BESSMeta, DGenMeta, PPAMeta
 
 class Source:
-    def __init__(self, n, source_type):
+    def __init__(self, n, source_type, src_priority):
         self.n = n
         self.inputs = self.create_input_structure()
         self.outputs = self.create_output_structure()
         self.source_type = source_type
+        self.priority = src_priority
 
     def create_input_structure(self):
         return {
@@ -43,8 +44,8 @@ class Source:
 
 
 class SolarSource(Source):
-    def __init__(self, n):
-        super().__init__(n, 'Solar')
+    def __init__(self, n, src_p):
+        super().__init__(n, 'Solar',src_p)
         self.meta = SolarMeta()
 
     def calc_output_power(self, current_year, month, hour):
@@ -79,14 +80,14 @@ class SolarSource(Source):
         return degraded_capacity_mw * self.meta.output_data[month]['mnth_ener_op_per_MW']
 
 class BESSSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'BESS')
+    def __init__(self, n, src_p):
+        super().__init__(n,'BESS',src_p)
         self.meta = BESSMeta()
 
 
 class WindSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'Wind')
+    def __init__(self, n, src_p):
+        super().__init__(n,'Wind', src_p)
         self.meta = WindMeta()
 
     def calc_output_power(self, current_year, month, hour):
@@ -123,8 +124,8 @@ class WindSource(Source):
 
 
 class GridSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'Grid')
+    def __init__(self, n, src_p):
+        super().__init__(n,'Grid', src_p)
         self.meta = GridMeta()
         #add output structure here to accomodate peak and off peak units
         self.extend_output_structure()
@@ -139,9 +140,23 @@ class GridSource(Source):
                 self.outputs[year][month]['offpeak_enr_charges'] = 0
                 self.outputs[year][month]['fixed_charges'] = 0
 
+class PPASource(Source):
+    def __init__(self, n, src_p):
+        super().__init__(n,'PPA', src_p)
+        self.meta = PPAMeta()
+        #add output structure here to accomodate peak and off peak units
+        self.extend_output_structure()
+
+    def extend_output_structure(self):
+        # Extend output structure with Grid Source specific keys
+        for year in range(self.n + 1):
+            for month in range(1, 13):
+                self.outputs[year][month]['enr_charges'] = 0
+                self.outputs[year][month]['fixed_charges'] = 0
+
 class GasGenSource(Source):
-    def __init__(self, n):
-        super().__init__(n, 'Gas Generator')
+    def __init__(self, n, src_p):
+        super().__init__(n, 'Gas Generator', src_p)
         self.meta = GasGenMeta()
         self.extend_input_structure()
         self.extend_output_structure()
@@ -151,7 +166,8 @@ class GasGenSource(Source):
         for year in range(self.n + 1):  # Use range based on n to iterate over years
             self.inputs[year]['rating_backup_units'] = 0
             self.inputs[year]['count_backup_units'] = 0
-            self.inputs[year]['perc_rated_output'] = 0
+            self.inputs[year]['perc_rated_output'] = 0 
+            self.inputs[year]['fuel_eff'] = 100
 
         # These two keys are not associated with a specific year, so they remain the same
         self.inputs['chp_operation'] = False
@@ -172,8 +188,8 @@ class GasGenSource(Source):
 
 
 class HFOGenSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'HFO Generator')
+    def __init__(self, n, src_p):
+        super().__init__(n,'HFO Generator', src_p)
         self.meta = HFOGenMeta()
         self.extend_input_structure()
         self.extend_output_structure()
@@ -184,6 +200,7 @@ class HFOGenSource(Source):
             self.inputs[year]['rating_backup_units'] = 0
             self.inputs[year]['count_backup_units'] = 0
             self.inputs[year]['perc_rated_output'] = 0
+            self.inputs[year]['fuel_eff'] = 100
 
         self.inputs['chp_operation'] = False
         self.inputs['fuel_type'] = 'HFO'
@@ -202,8 +219,8 @@ class HFOGenSource(Source):
 
 
 class TrifuelGenSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'HFO+Gas Generator')
+    def __init__(self, n, src_p):
+        super().__init__(n,'HFO+Gas Generator', src_p)
         self.meta = TriFuelGenMeta()
         self.extend_input_structure()
         self.extend_output_structure()
@@ -214,6 +231,7 @@ class TrifuelGenSource(Source):
             self.inputs[year]['rating_backup_units'] = 0
             self.inputs[year]['count_backup_units'] = 0
             self.inputs[year]['perc_rated_output'] = 0
+            self.inputs[year]['fuel_eff'] = 100
 
         self.inputs['chp_operation'] = False
         self.inputs['fuel_type'] = 'RLNG'
@@ -240,8 +258,8 @@ class TrifuelGenSource(Source):
         hfo_enr = energy - gas_enr
         return gas_enr, hfo_enr
 class DieselGenSource(Source):
-    def __init__(self, n):
-        super().__init__(n,'Diesel Generator')
+    def __init__(self, n, src_p):
+        super().__init__(n,'Diesel Generator', src_p)
         self.meta = DGenMeta()
         self.extend_input_structure()
         self.extend_output_structure()
@@ -250,7 +268,9 @@ class DieselGenSource(Source):
         # Extend input structure with GasGenSource specific keys
         for year in range(self.n + 1):
             self.inputs[year]['perc_rated_output'] = 0
+            self.inputs[year]['fuel_eff'] = 100
         self.inputs['fuel_type'] = 'Diesel'
+        
 
     def extend_output_structure(self):
         # Extend output structure with Diesel Gen specific keys

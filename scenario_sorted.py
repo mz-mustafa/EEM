@@ -12,7 +12,8 @@ class Scenario:
         self.client_name = client_name
         self.timestamp = datetime.datetime.now()
         self.scenario_spec = {}
-        self.sources = {}
+        self.sources_dict = {}
+        self.sources_list = []
         self.ip_site_data = {}
         self.ip_load_data = {}
         self.ip_enr_data = {}
@@ -61,7 +62,9 @@ class Scenario:
 
     def add_source(self, source):
 
-        self.sources[source.source_type] = source
+        self.sources_dict[source.source_type] = source
+        self.sources_list.append(source)
+        self.sources_list.sort(key= lambda src: src.priority)
 
     @staticmethod
     def available_sources(all_sources=True):
@@ -71,6 +74,17 @@ class Scenario:
         else:
             return ["Solar", "Wind", "Gas Generator", "HFO Generator",
                     "HFO+Gas Generator", "PPA", "Grid","Diesel Generator"]
+
+    @staticmethod
+    def stable_sources(include_backup):
+        
+        if include_backup:
+
+            return ["Gas Generator", "HFO Generator", "HFO+Gas Generator", 
+                    "PPA","Grid", "Diesel Generator"]
+        else:
+            return ["Gas Generator", "HFO Generator", "HFO+Gas Generator", 
+                    "PPA","Grid"]
 
     @staticmethod
     def available_gas_types():
@@ -151,15 +165,15 @@ class Scenario:
             raise Exception(f"Error reading data from Excel: {e}")
 
     def scenario_include_stable_sources(self):
-        return any(source_name in self.sources for source_name in
+        return any(source_name in self.sources_dict for source_name in
                    ['PPA','Grid', 'Gas Generator', 'HFO Generator', 'HFO+Gas Generator'])
 
     def get_gen_pwr_ops(self, source_type, unit_type, current_year):
         # Check if the given source_type exists in the sources dictionary
-        if source_type not in self.sources:
+        if source_type not in self.sources_dict:
             raise ValueError(f"No source of type {source_type} found.")
 
-        source = self.sources[source_type]
+        source = self.sources_dict[source_type]
 
         # Check if the unit_type is valid
         if unit_type not in ['PRIMARY', 'BACKUP']:
@@ -203,10 +217,10 @@ class Scenario:
 
     def get_gen_ener_op(self, source_type, current_year, current_month):
 
-        if source_type not in self.sources:
+        if source_type not in self.sources_dict:
             raise ValueError(f"No source of type {source_type} found.")
 
-        source = self.sources[source_type]
+        source = self.sources_dict[source_type]
 
         #NOT NEEDED IN ENERGY BECAUSE WE ALREADY ACCOUNT FOR THIS IN
         """
@@ -259,13 +273,13 @@ class Scenario:
                                self.ip_load_data[year]['cool_elect_load'])) * self.ip_enr_data[month]['days']
 
         #Energy requirements to charge BESS
-        if 'BESS' in self.sources:
+        if 'BESS' in self.sources_dict:
 
             #sum the failure per year of all sources
 
-            tot_failures = sum(self.sources[src_name].meta.num_failures_year
+            tot_failures = sum(self.sources_dict[src_name].meta.num_failures_year
                                for src_name in self.available_sources(all_sources=False)
-                               if src_name in self.sources)
+                               if src_name in self.sources_dict)
             charge_cycles_month = round(self.ip_enr_data[month]['days'] * (tot_failures / 365))
 
             _, total_cap = self.get_gen_pwr_ops('BESS', 'PRIMARY', year)
@@ -321,9 +335,9 @@ class Scenario:
 
 
     def calc_ins_backup_pwr_pot(self, year, month):
-        wind_min_power = min([self.sources['Wind'].calc_output_power(year, month, hour)
-                              for hour in range(1, 25)]) if 'Wind' in self.sources else 0
-        bess_capacity = self.get_gen_pwr_ops('BESS', 'PRIMARY', year)[1] if 'BESS' in self.sources else 0
+        wind_min_power = min([self.sources_dict['Wind'].calc_output_power(year, month, hour)
+                              for hour in range(1, 25)]) if 'Wind' in self.sources_dict else 0
+        bess_capacity = self.get_gen_pwr_ops('BESS', 'PRIMARY', year)[1] if 'BESS' in self.sources_dict else 0
         return wind_min_power + bess_capacity
 
     def grid_pk_to_offpk(self, month, energy):
@@ -336,9 +350,9 @@ class Scenario:
         total_cool_op = 0
         for src_name in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator']:
 
-            if src_name in self.sources:
+            if src_name in self.sources_dict:
 
-                src = self.sources[src_name]
+                src = self.sources_dict[src_name]
                 avg_src_pwr = sum([src.outputs[year][month][hour]['power_output_prim_units']
                                    for hour in range(1, 25)])/24
                 src_cool_op = avg_src_pwr * src.meta.cooling_load_feeding_capability
@@ -359,9 +373,9 @@ class Scenario:
         # For each year, gather the data for each source
         for year in range(0, self.n + 1):
             for src in all_sources:
-                if src in self.sources:
-                    num_units = self.sources[src].inputs[year]['count_prim_units']
-                    unit_rating = self.sources[src].inputs[year]['rating_prim_units']
+                if src in self.sources_dict:
+                    num_units = self.sources_dict[src].inputs[year]['count_prim_units']
+                    unit_rating = self.sources_dict[src].inputs[year]['rating_prim_units']
                     total_capacity = num_units * unit_rating
                 else:
                     num_units, unit_rating, total_capacity = 0, 0, 0
@@ -398,28 +412,28 @@ class Scenario:
                 critical_load = self.ip_load_data[year]['crit_load_prop'] * self.ip_load_data[year]['max_dem_load_day'] / 100
 
                 # Energy from renewables
-                for ren_src_name in ['Solar', 'Wind']:
+                for ren_src_name in ['Wind', 'Solar']:
 
-                    if ren_src_name in self.sources:
+                    if ren_src_name in self.sources_dict:
                         print(f"Finding {ren_src_name} energy")
-                        pot_enr_op = self.sources[ren_src_name].calc_output_energy(year, month)
+                        pot_enr_op = self.sources_dict[ren_src_name].calc_output_energy(year, month)
 
                         # Wind energy func returns daily energy value
                         if ren_src_name == 'Wind':
                             pot_enr_op *= self.ip_enr_data[month]['days']
                         ren_enr_op = min(month_rem_enr_req, pot_enr_op)
                         month_rem_enr_req -= ren_enr_op
-                        self.sources[ren_src_name].outputs[year][month]['energy_output_prim_units'] = ren_enr_op
+                        self.sources_dict[ren_src_name].outputs[year][month]['energy_output_prim_units'] = ren_enr_op
                         month_data[f"{ren_src_name} Output in MWh"] = ren_enr_op
 
                 month_data["Remaining Energy Demand (after Renewables) MWh"] = month_rem_enr_req
+                 
+                for src in self.sources_list:
 
-                for src_name in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator', 'PPA','Grid']:
-
-                    if src_name in self.sources:
+                    if src.source_type in self.stable_sources(include_backup=False):
+                        src_name = src.source_type
 
                         print(f"Finding {src_name} energy")
-                        src = self.sources[src_name]
                         # Calculate Monthly Failure Probability
                         num_pot_failures = self.determine_pot_failures(src,year,month)
                         month_data[f'{src_name} Potential Failures'] = num_pot_failures
@@ -439,11 +453,11 @@ class Scenario:
                             num_failures = num_pot_failures
                             failure_duration = 0
                             #if instant backup can take the critical load for short term...
-                            for alt_src_name in ["Gas Generator", "PPA","Grid", "HFO Generator",
-                                                 "HFO+Gas Generator", "Diesel Generator"]:
-                                if alt_src_name != src_name and alt_src_name in self.sources:
+                            for alt_src in self.sources_list:
+                                if alt_src.source_type in self.stable_sources(include_backup=True) and alt_src.source_type != src.source_type:
+
+                                    alt_src_name = alt_src.source_type
                                     print(f"Checking if {alt_src_name} can provide failure coverage {src_name}")
-                                    alt_src = self.sources[alt_src_name]
                                     _, total_cap = self.get_gen_pwr_ops(alt_src_name, 'PRIMARY', year)
                                     # ...and a stable source can kick in to handle longer term...
                                     if total_cap >= critical_load:
@@ -517,17 +531,17 @@ class Scenario:
                         else:
                             src.outputs[year][month]['energy_output_prim_units'] += gen_enr_op
                             month_data[f"{src_name} Output in MWh"] = \
-                                self.sources[src_name].outputs[year][month]['energy_output_prim_units']
+                                self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units']
 
-                if 'Diesel Generator' in self.sources:
+                if 'Diesel Generator' in self.sources_dict:
                     print("Finding the energy output for Diesel Generator")
                     src_name = 'Diesel Generator'
                     gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month)
                     gen_enr_op = min(month_rem_enr_req, gen_pot_enr_op)
                     month_rem_enr_req -= gen_enr_op
-                    self.sources[src_name].outputs[year][month]['energy_output_prim_units'] += gen_enr_op
+                    self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units'] += gen_enr_op
                     month_data[f"{src_name} Output in MWh"] = \
-                        self.sources[src_name].outputs[year][month]['energy_output_prim_units']
+                        self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units']
 
                 month_data['Final Unserved Energy Req in MWh'] = month_rem_enr_req
                 self.energy_df.append(month_data)
@@ -556,9 +570,9 @@ class Scenario:
 
                     # Calculate Free Cooling
                     for gen in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator']:
-                        if gen in self.sources:
+                        if gen in self.sources_dict:
                             _, total_cap = self.get_gen_pwr_ops(gen, 'PRIMARY', year)
-                            free_cooling_output += total_cap * self.sources[gen].meta.cooling_load_feeding_capability
+                            free_cooling_output += total_cap * self.sources_dict[gen].meta.cooling_load_feeding_capability
 
                     hour_data['Free Cooling available in TR'] = free_cooling_output
                     rem_cooling_demand = hour_data['Cooling demand in TR'] - free_cooling_output
@@ -569,7 +583,7 @@ class Scenario:
 
                     bess_charge_load = 0
                     # BESS charging impact
-                    if 'BESS' in self.sources:
+                    if 'BESS' in self.sources_dict:
                         _, total_cap = self.get_gen_pwr_ops('BESS', 'PRIMARY', year)
                         hour_data['BESS Charging Demand'] = total_cap * 0.25
                         bess_charge_load = hour_data['BESS Charging Demand']
@@ -578,28 +592,27 @@ class Scenario:
                     hour_data['Total power demand incl. Cooling & BESS in MW'] = unserved_demand
 
                     # Satisfy Demand with Sources
-                    for src_name in ['Solar', 'Wind', 'Gas Generator', 'HFO Generator',
-                                     'HFO+Gas Generator', 'PPA','Grid', 'Diesel Generator']:
-                        if src_name in self.sources:
-                            if src_name in ['Solar', 'Wind']:
-                                output_potential = self.sources[src_name].calc_output_power(year, month, hour)
-                            else:
-                                _, output_potential = self.get_gen_pwr_ops(src_name, 'PRIMARY', year)
+                    for src in self.sources_list:
+                        
+                        src_name = src.source_type
 
-                            output_actual = min(unserved_demand, output_potential)
-                            unserved_demand -= output_actual
-                            unserved_demand = max(0, unserved_demand)
-                            hour_data[f'{src_name} Output in MW'] = output_actual
-                            hour_data[f'{src_name} Loading in %'] = (output_actual * 100) / \
-                                                                    output_potential if output_potential else 0
+                        if src_name in ['Solar', 'Wind']:
+                            output_potential = self.sources_dict[src_name].calc_output_power(year, month, hour)
+                        else:
+                            _, output_potential = self.get_gen_pwr_ops(src_name, 'PRIMARY', year)
 
-                            self.sources[src_name].outputs[year][month][hour]['power_output_prim_units'] = output_actual
-                            self.sources[src_name].outputs[year][month][hour]['loading_prim_units'] = \
-                                hour_data[f'{src_name} Loading in %']
+                        output_actual = min(unserved_demand, output_potential)
+                        unserved_demand -= output_actual
+                        unserved_demand = max(0, unserved_demand)
+                        hour_data[f'{src_name} Output in MW'] = output_actual
+                        hour_data[f'{src_name} Loading in %'] = (output_actual * 100) / output_potential if output_potential else 0
+
+                        self.sources_dict[src_name].outputs[year][month][hour]['power_output_prim_units'] = output_actual
+                        self.sources_dict[src_name].outputs[year][month][hour]['loading_prim_units'] = hour_data[f'{src_name} Loading in %']
 
                     hour_data['Final Unserved Load'] = unserved_demand
 
-                    # Append the hour's d ata to the list
+                    # Append the hour's data to the list
                     self.power_df.append(hour_data)
         self.power_df = pd.DataFrame(self.power_df)
 
@@ -613,12 +626,9 @@ class Scenario:
                 interrupt_loss = 0
                 outage_loss = 0
 
-                for src_name in self.available_sources(all_sources=True):
+                for src in self.sources_list:
 
-                    if src_name not in self.sources:
-                        continue
-                    src = self.sources[src_name]
-
+                    src_name = src.source_type
                     # Calculate total capacity up till current year
                     total_capacity = sum(
                         yr_data['count_prim_units'] * yr_data['rating_prim_units']
@@ -672,17 +682,39 @@ class Scenario:
                         fuel_type = src.inputs['fuel_type']
                         fuel_data = fuel_tariff.get_tariff_and_inflation(fuel_type)
 
-                        src_mnth_op['fuel_charges'] = src_mnth_op['energy_output_prim_units'] * fuel_data[
-                            'tariff'] * pow(1 + fuel_data['inflation'], y)
-                        month_data[f'Fuel Charges for {fuel_type}, M PKR'] = src_mnth_op['fuel_charges'] / 1000000
+                        # Initialize fuel charges for the month
+                        src_mnth_op['fuel_charges'] = 0
 
+                        for year in src.inputs:
+                            if isinstance(year, int) and year <= y:
+                                y_capacity = src.inputs[year]['count_prim_units'] * src.inputs[year]['rating_prim_units']
+                                proportion = y_capacity / total_capacity if total_capacity else 0
+                                energy_output_component = src_mnth_op['energy_output_prim_units'] * proportion
+                                fuel_eff_factor = 1 + (100 - src.inputs[year]['fuel_eff']) / 100
+                                # Calculate fuel charges for the energy output component of year y
+                                src_mnth_op['fuel_charges'] += energy_output_component * fuel_data['tariff'] * fuel_eff_factor * pow(1 + fuel_data['inflation'], y)
+
+                        # Secondary fuel charges for HFO+Gas Generator
                         if src_name == 'HFO+Gas Generator':
                             sec_fuel_type = src.inputs['sec_fuel_type']
-                            fuel_data = fuel_tariff.get_tariff_and_inflation(sec_fuel_type)
-                            src_mnth_op['fuel_charges_sec'] = src_mnth_op['energy_output_prim_units_sec'] * \
-                                                              fuel_data['tariff'] * pow(1 + fuel_data['inflation'], y)
-                            month_data[f'Fuel Charges for {sec_fuel_type}, M PKR'] = \
-                                src_mnth_op['fuel_charges_sec'] / 1000000
+                            fuel_data_sec = fuel_tariff.get_tariff_and_inflation(sec_fuel_type)
+                            src_mnth_op['fuel_charges_sec'] = 0  # Initialize secondary fuel charges for the month
+
+                            # Calculate secondary fuel charges for each year's additions up till the current year (year)
+                            for year in src.inputs:
+                                if isinstance(year, int) and year <= y:
+                                    y_capacity = src.inputs[year]['count_prim_units'] * src.inputs[year]['rating_prim_units']
+                                    proportion = y_capacity / total_capacity if total_capacity else 0
+                                    energy_output_component_sec = src_mnth_op['energy_output_prim_units_sec'] * proportion
+                                    fuel_eff_factor_sec = 1 + (100 - src.inputs[year]['fuel_eff']) / 100
+                                    # Calculate secondary fuel charges for the energy output component of year y
+                                    src_mnth_op['fuel_charges_sec'] += energy_output_component_sec * fuel_data_sec['tariff'] * fuel_eff_factor_sec * pow(1 + fuel_data_sec['inflation'], y)
+
+                            # Convert total secondary fuel charges to M PKR
+                            month_data[f'Fuel Charges for {sec_fuel_type}, M PKR'] = src_mnth_op['fuel_charges_sec'] / 1000000
+
+                        # Convert total primary fuel charges to M PKR
+                        month_data[f'Fuel Charges for {fuel_type}, M PKR'] = src_mnth_op['fuel_charges'] / 1000000
 
                     # Calculate the cost of interruptions
                     interrupt_loss += src.outputs[y][m]['num_failures'] * \
@@ -703,30 +735,29 @@ class Scenario:
             for m in range(1, 13):
                 month_data = {'year': y, 'month': m}
 
-                for src_name in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator', 'Diesel Generator','PPA','Grid']:
+                for src in self.sources_list:
+                    if src.source_type in self.stable_sources(include_backup=True):
+                        src_name = src.source_type
 
-                    if src_name not in self.sources:
-                        continue
-                    src = self.sources[src_name]
-                    if src_name == 'Grid':
-                        src.outputs[y][m]['co2_emissions'] = \
-                            (src.outputs[y][m]['energy_output_peak'] +
-                             src.outputs[y][m]['energy_output_offpeak']) * src.meta.co2_emission
+                        if src_name == 'Grid':
+                            src.outputs[y][m]['co2_emissions'] = \
+                                (src.outputs[y][m]['energy_output_peak'] +
+                                src.outputs[y][m]['energy_output_offpeak']) * src.meta.co2_emission
+                            
+                        elif src_name == 'PPA':
+                            src.outputs[y][m]['co2_emissions'] = \
+                                src.outputs[y][m]['energy_output_prim_units'] * src.meta.co2_emission
                         
-                    elif src_name == 'PPA':
-                        src.outputs[y][m]['co2_emissions'] = \
-                            src.outputs[y][m]['energy_output_prim_units'] * src.meta.co2_emission
-                    
-                    elif src_name == 'HFO+Gas Generator':
-                        fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['sec_fuel_type'])
-                        src.outputs[y][m]['co2_emissions'] += src.outputs[y][m]['energy_output_prim_units_sec'] \
-                                                              * fuel_data['co2_emission']
-                    
-                    else:
-                        fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['fuel_type'])
-                        src.outputs[y][m]['co2_emissions'] = src.outputs[y][m]['energy_output_prim_units'] \
-                                                             * fuel_data['co2_emission']
-                    month_data[f'CO2 Emissions from {src_name}, MT'] = src.outputs[y][m]['co2_emissions']/1000
+                        elif src_name == 'HFO+Gas Generator':
+                            fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['sec_fuel_type'])
+                            src.outputs[y][m]['co2_emissions'] += src.outputs[y][m]['energy_output_prim_units_sec'] \
+                                                                * fuel_data['co2_emission']
+                        
+                        else:
+                            fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['fuel_type'])
+                            src.outputs[y][m]['co2_emissions'] = src.outputs[y][m]['energy_output_prim_units'] \
+                                                                * fuel_data['co2_emission']
+                        month_data[f'CO2 Emissions from {src_name}, MT'] = src.outputs[y][m]['co2_emissions']/1000
                 self.emissions_df.append(month_data)
         self.emissions_df = pd.DataFrame(self.emissions_df)
 
@@ -734,11 +765,9 @@ class Scenario:
 
         for year in range(0, self.n + 1):
             y_data = {'year': year}
-            for src_name in self.available_sources(all_sources=True):
+            for src in self.sources_list:
 
-                if src_name not in self.sources:
-                    continue
-                src = self.sources[src_name]
+                src_name = src.source_type
                 cap_cost_y_zero = src.meta.existing_cap_cost
 
                 # Get the required values

@@ -86,6 +86,21 @@ class WindMeta:
                 }
                 current_row += 1  # Move to the next row
 
+class PPAMeta:
+    def __init__(self, input_file_path='input_data.xlsx', sheet_name='ppa'):
+        workbook = openpyxl.load_workbook(input_file_path, data_only=True)
+        sheet = workbook[sheet_name]
+
+        self.capital_cost_baseline = sheet['C3'].value
+        self.existing_cap_cost = sheet['C4'].value
+        self.tariff_baseline_fixed = sheet['C5'].value
+        self.tariff_baseline_var = sheet['C6'].value
+        self.num_failures_year = sheet['C7'].value
+        self.avg_failure_time = sheet['C8'].value
+        self.opex_inflation_rate = sheet['C9'].value
+        self.time_take_load_prim = sheet['C10'].value
+        self.co2_emission = sheet['C11'].value
+
 class GridMeta:
     def __init__(self, input_file_path='input_data.xlsx', sheet_name='grid'):
         workbook = openpyxl.load_workbook(input_file_path, data_only=True)
