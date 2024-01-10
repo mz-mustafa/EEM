@@ -191,8 +191,8 @@ def main():
     # add the created sources to scenario
     if submit_button:
         print('Submit Button Pressed')
-        priority_list = [grid_priority, ppa_priority, gas_priority, hfo_priority, tri_priority, diesel_priority]
-        if has_duplicate_values(priority_list):
+        p_list = [grid_priority, ppa_priority, gas_priority, hfo_priority, tri_priority, diesel_priority]
+        if has_duplicate_values(p_list):
             st.warning("Source priorities are not defined. You may have assigned the same priority to multiple" 
                        "sources. Please correst and submit the scenario again")
         else:
@@ -217,7 +217,7 @@ def main():
 
                 sc.add_source(ppa)
 
-            if solar_req and solar_priority > 0:
+            if solar_req:
                 solar = SolarSource(n, solar_priority)
                 for year, solar_data in solar_input_df.items():
                     y = int(re.search(r'\d+', year).group())
@@ -226,7 +226,7 @@ def main():
 
                 sc.add_source(solar)
 
-            if wind_req and wind_priority > 0:
+            if wind_req:
                 wind = WindSource(n, wind_priority)
                 for year, wind_data in wind_input_df.items():
                     y = int(re.search(r'\d+', year).group())
@@ -292,34 +292,24 @@ def main():
             sc.generate_results()
             sc.generate_summaries()
 
-            st.write("#### Scenario KPIs")
-
-            col1, col2, col3 = st.columns(3)
-            
-            # Place KPIs in respective columns
-            create_kpi_card(col1, "Sales", "$10,000")
-            create_kpi_card(col2, "Profit", "$2,000")
-            create_kpi_card(col3, "Customer Satisfaction", "95%")
-
-
             st.write("#### Summary Outcomes")
-            st.dataframe(sc.summary_df)
+            st.dataframe(sc.summary_df, hide_index=True)
 
             st.write("#### Power Summary")
             st.write("###### Shown cases either have unserved demand or are randomly picked for each year")
-            st.dataframe(sc.power_summary_df)
+            st.dataframe(sc.power_summary_df, hide_index=True)
 
             st.write("#### Energy Summary")
-            st.dataframe(sc.energy_summary_df)
+            st.dataframe(sc.energy_summary_df, hide_index=True)
 
             st.write("#### CAPEX Summary")
-            st.dataframe(sc.capex_df)
+            st.dataframe(sc.capex_df, hide_index=True)
 
             st.write("#### OPEX Summary")
-            st.dataframe(sc.opex_summary_df)
+            st.dataframe(sc.opex_summary_df, hide_index=True)
 
             st.write("#### Emissions Summary")
-            st.dataframe(sc.emissions_summary_df)
+            st.dataframe(sc.emissions_summary_df, hide_index=True)
 
 
             print("Now creating in memory excel file for download")

@@ -363,7 +363,7 @@ class Scenario:
 
     def get_scenario_config(self):
         # List of all available sources
-        all_sources = self.available_sources()
+        #all_sources = self.available_sources()
 
         # Data structure to hold the extracted data
         data = {
@@ -372,19 +372,17 @@ class Scenario:
 
         # For each year, gather the data for each source
         for year in range(0, self.n + 1):
-            for src in all_sources:
-                if src in self.sources_dict:
-                    num_units = self.sources_dict[src].inputs[year]['count_prim_units']
-                    unit_rating = self.sources_dict[src].inputs[year]['rating_prim_units']
-                    total_capacity = num_units * unit_rating
-                else:
-                    num_units, unit_rating, total_capacity = 0, 0, 0
+            for src in self.sources_list:
+                num_units = src.inputs[year]['count_prim_units']
+                unit_rating = src.inputs[year]['rating_prim_units']
+                total_capacity = num_units * unit_rating
+                priority = src.priority
 
                 # Append data to the structure
-                data.setdefault(f"{src} Num of Units", []).append(num_units)
-                data.setdefault(f"{src} Unit Rating MW", []).append(unit_rating)
-                data.setdefault(f"{src} Total Capacity MW ", []).append(total_capacity)
-
+                #data.setdefault(f"{src} Num of Units", []).append(num_units)
+                #data.setdefault(f"{src} Unit Rating MW", []).append(unit_rating)
+                data.setdefault(f"{src.source_type} Total Capacity MW ", []).append(total_capacity)
+                data.setdefault(f"{src.source_type} Source Priority", []).append(priority)
         # Convert the data structure to a DataFrame
         self.scenario_spec = pd.DataFrame(data)
 
@@ -425,41 +423,41 @@ class Scenario:
                         month_rem_enr_req -= ren_enr_op
                         self.sources_dict[ren_src_name].outputs[year][month]['energy_output_prim_units'] = ren_enr_op
                         month_data[f"{ren_src_name} Output in MWh"] = ren_enr_op
-
                 month_data["Remaining Energy Demand (after Renewables) MWh"] = month_rem_enr_req
                  
                 for src in self.sources_list:
 
                     if src.source_type in self.stable_sources(include_backup=False):
                         src_name = src.source_type
+                        print(f"Finding {src_name} potential energy")
+                        gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month) - \
+                                         src.outputs[year][month]['energy_output_prim_units']
 
-                        print(f"Finding {src_name} energy")
                         # Calculate Monthly Failure Probability
+                        print(f"Finding failures for {src_name}")
                         num_pot_failures = self.determine_pot_failures(src,year,month)
                         month_data[f'{src_name} Potential Failures'] = num_pot_failures
                         if num_pot_failures == 0:
                             month_data[f'{src_name} Failures mitigated'] = 0
                             month_data[f'{src_name} Unavailability, hrs'] = 0
-
                         else:
-                            print(f"Finding failures for {src_name}")
-                            # find energy required to cover each failure
+                            # determined reduced energyfind energy required to cover each failure
+                            month_data[f'{src_name} Potential Failures'] = num_pot_failures
+                            hourly_pot = gen_pot_enr_op/(self.ip_enr_data[month]['days']*24)
+                            lost_enr_pot = num_pot_failures * hourly_pot * src.meta.avg_failure_time
+                            gen_pot_enr_op -= lost_enr_pot
                             en_per_fail = src.meta.avg_failure_time * critical_load
-
-                            # Calculate Instant Backup Potential Power
-                            ins_backup_pot_pwr = self.calc_ins_backup_pwr_pot(year, month)
-
                             num_fails_not_cov = num_pot_failures
-                            num_failures = num_pot_failures
-                            failure_duration = 0
-                            #if instant backup can take the critical load for short term...
+
+                            #look through other primary sources
                             for alt_src in self.sources_list:
-                                if alt_src.source_type in self.stable_sources(include_backup=True) and alt_src.source_type != src.source_type:
+                                if alt_src.source_type in self.stable_sources(include_backup=True) \
+                                        and alt_src.source_type != src.source_type:
 
                                     alt_src_name = alt_src.source_type
                                     print(f"Checking if {alt_src_name} can provide failure coverage {src_name}")
                                     _, total_cap = self.get_gen_pwr_ops(alt_src_name, 'PRIMARY', year)
-                                    # ...and a stable source can kick in to handle longer term...
+                                    # ...and check if these can kick in to cover the failure duration
                                     if total_cap >= critical_load:
 
                                         print(f"{alt_src_name} does have power cap to backup {src_name}")
@@ -478,13 +476,13 @@ class Scenario:
                                         if alt_src.source_type == 'Grid':
                                             backup_enr_pk, backup_enr_nonpk = \
                                                 self.grid_pk_to_offpk(month, alt_src_nfail_cover * en_per_fail)
-                                            alt_src.outputs[year][month]['energy_output_peak'] = backup_enr_pk
-                                            alt_src.outputs[year][month]['energy_output_offpeak'] = backup_enr_nonpk
+                                            alt_src.outputs[year][month]['energy_output_peak'] += backup_enr_pk
+                                            alt_src.outputs[year][month]['energy_output_offpeak'] += backup_enr_nonpk
 
                                         elif alt_src.source_type == 'HFO+Gas Generator':
                                             gas_enr, hfo_enr = alt_src.gas_hfo_enr_op(alt_src_nfail_cover * en_per_fail)
-                                            alt_src.outputs[year][month]['energy_output_prim_units'] = gas_enr
-                                            alt_src.outputs[year][month]['energy_output_prim_units_sec'] = hfo_enr
+                                            alt_src.outputs[year][month]['energy_output_prim_units'] += gas_enr
+                                            alt_src.outputs[year][month]['energy_output_prim_units_sec'] += hfo_enr
 
                                         else:
                                             alt_src.outputs[year][month]['energy_output_prim_units'] += \
@@ -495,6 +493,9 @@ class Scenario:
                                         # then further sources don't need to tried.
                                         if num_fails_not_cov <= 0:
                                             break
+                            # Calculate Instant Backup Potential Power
+                            ins_backup_pot_pwr = self.calc_ins_backup_pwr_pot(year, month)
+
                             if ins_backup_pot_pwr >= critical_load:
                                 num_failures = num_fails_not_cov
                             else:
@@ -511,7 +512,6 @@ class Scenario:
                         # Energy output calculation for stable sources (including failure adjustments)
                         print(f"Finding the energy output for {src_name}")
 
-                        gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month)
                         gen_enr_op = min(month_rem_enr_req, gen_pot_enr_op)
                         month_rem_enr_req -= gen_enr_op
                         if src.source_type == 'Grid':
@@ -533,10 +533,13 @@ class Scenario:
                             month_data[f"{src_name} Output in MWh"] = \
                                 self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units']
 
-                if 'Diesel Generator' in self.sources_dict:
+                        #if month_rem_enr_req <= 0:
+                            #break
+                if 'Diesel Generator' in self.sources_dict and month_rem_enr_req > 0: #if 'Diesel Generator' in self.sources_dict and month_rem_enr_req > 0:
                     print("Finding the energy output for Diesel Generator")
                     src_name = 'Diesel Generator'
-                    gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month)
+                    gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month) - \
+                                     src.outputs[year][month]['energy_output_prim_units']
                     gen_enr_op = min(month_rem_enr_req, gen_pot_enr_op)
                     month_rem_enr_req -= gen_enr_op
                     self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units'] += gen_enr_op
@@ -625,7 +628,8 @@ class Scenario:
                 month_data = {'year': y, 'month': m}
                 interrupt_loss = 0
                 outage_loss = 0
-
+                interrupt_list = []
+                outage_list = []
                 for src in self.sources_list:
 
                     src_name = src.source_type
@@ -716,14 +720,16 @@ class Scenario:
                         # Convert total primary fuel charges to M PKR
                         month_data[f'Fuel Charges for {fuel_type}, M PKR'] = src_mnth_op['fuel_charges'] / 1000000
 
-                    # Calculate the cost of interruptions
-                    interrupt_loss += src.outputs[y][m]['num_failures'] * \
-                                      self.ip_site_data['fail_loss_immediate'] / 1000000
+                    # Determine number of interruptions
+                    interrupt_list.append(src.outputs[y][m]['num_failures'])
+                    outage_list.append(src.outputs[y][m]['failure_duration'])
 
-                    outage_loss += src.outputs[y][m]['failure_duration'] * \
-                                   self.ip_site_data['fail_loss_over_time'] / 1000000
-                month_data['Loss due to Interruptions, M PKR'] = interrupt_loss
-                month_data['Loss due to Outage, M PKR'] = outage_loss
+                # since not all interruptions would impact critical load
+                # we take the average of interruptions (not mitigated
+                month_data['Loss due to Interruptions, M PKR'] = round(sum(interrupt_list)/len(interrupt_list)) * \
+                                                                 self.ip_site_data['fail_loss_immediate'] / 1000000
+                month_data['Loss due to Outage, M PKR'] = round(sum(outage_list)/len(outage_list)) * \
+                                                          self.ip_site_data['fail_loss_over_time'] / 1000000
                 self.opex_df.append(month_data)
         self.opex_df = pd.DataFrame(self.opex_df)
 
