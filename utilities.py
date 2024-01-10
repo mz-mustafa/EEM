@@ -2,9 +2,9 @@ from scenario_sorted import Scenario
 from io import BytesIO
 from openpyxl import load_workbook
 import pandas as pd
-from requests_oauthlib import OAuth2Session
+#from requests_oauthlib import OAuth2Session
 import os
-import io
+#import io
 from sources import GridSource, SolarSource, WindSource, GasGenSource, \
     HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource, PPASource
 
@@ -64,7 +64,7 @@ def generate_excel_in_memory(sc):
             df.to_excel(writer, sheet_name=sheet, index=False)
     output.seek(0)
     return output
-
+"""
 def connect_onedrive():
     client_id = 'cb497375-f9ee-4a0a-a8f6-8f5e7358465b'
     client_secret = 'CPt8Q~Aw4q5XbkzqKcJ69RZhfPFRUCp4izbLMaYP'
@@ -132,6 +132,7 @@ def read_file(msft_oa2_session, file_format):
             print(df.shape)
     else:
         print(f"Failed to download file: {response.status_code}")
+"""
 
 ##TEST CODE
 #create scenario, extract inputs

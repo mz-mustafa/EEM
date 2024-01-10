@@ -5,9 +5,6 @@ from sources import GridSource, SolarSource, WindSource, GasGenSource, \
     HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource, PPASource
 from scenario_sorted import Scenario
 from utilities import write_results_to_outputs, generate_excel_in_memory, has_duplicate_values
-from requests_oauthlib import OAuth2Session
-import os
-import io
 import pandas as pd
 
 
