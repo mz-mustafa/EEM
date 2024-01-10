@@ -12,7 +12,7 @@ def main():
     # Title and Logo
     st.title("KPWS- Energy Economic Modeling")
 
-    st.write(f"## Client: Client Name Here")
+    st.write(f"## Client: Pakistan Cables Limited")
 
     # Scenario Inputs
     st.write("## Scenario Inputs")
