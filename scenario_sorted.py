@@ -535,13 +535,17 @@ class Scenario:
 
                         #if month_rem_enr_req <= 0:
                             #break
-                if 'Diesel Generator' in self.sources_dict and month_rem_enr_req > 0: #if 'Diesel Generator' in self.sources_dict and month_rem_enr_req > 0:
-                    print("Finding the energy output for Diesel Generator")
+                if 'Diesel Generator' in self.sources_dict:
                     src_name = 'Diesel Generator'
-                    gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month) - \
-                                     src.outputs[year][month]['energy_output_prim_units']
-                    gen_enr_op = min(month_rem_enr_req, gen_pot_enr_op)
-                    month_rem_enr_req -= gen_enr_op
+                    if month_rem_enr_req > 0: #if 'Diesel Generator' in self.sources_dict and month_rem_enr_req > 0:
+                        print("Finding the energy output for Diesel Generator")
+                        
+                        gen_pot_enr_op = self.get_gen_ener_op(src_name, year, month) - \
+                                        src.outputs[year][month]['energy_output_prim_units']
+                        gen_enr_op = min(month_rem_enr_req, gen_pot_enr_op)
+                        month_rem_enr_req -= gen_enr_op
+                    else:
+                        gen_enr_op = 0
                     self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units'] += gen_enr_op
                     month_data[f"{src_name} Output in MWh"] = \
                         self.sources_dict[src_name].outputs[year][month]['energy_output_prim_units']
@@ -783,7 +787,10 @@ class Scenario:
 
                 # Calculate the capital cost for this year and source
                 if year == 0:
-                    capex = cap_cost_y_zero
+                    if count_prim_units == 0:
+                        capex = 0
+                    else:
+                        capex = cap_cost_y_zero
                 else:
                     capex = (count_prim_units * rating_prim_units * cap_cost_baseline
                              * pow(1 + self.ip_site_data['capital_inflation_rate'], year))

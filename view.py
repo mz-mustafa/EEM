@@ -195,6 +195,7 @@ def main():
         else:
             sc = Scenario(sc_name, 'Pakistan Cables Limited', n=n)
             sc.timestamp = datetime.datetime.now()
+            print("Scenario created")
 
             if grid_req and grid_priority > 0:
                 grid = GridSource(n,grid_priority)
@@ -204,6 +205,7 @@ def main():
                     grid.inputs[y]['count_prim_units'] = 1 if grid_data['Sanctioned Load Added (MW)'] != 0 else 0
 
                 sc.add_source(grid)
+                print("Grid source added to scenario")
 
             if ppa_req and ppa_priority > 0:
                 ppa = PPASource(n, ppa_priority)
@@ -213,6 +215,7 @@ def main():
                     ppa.inputs[y]['count_prim_units'] = 1 if ppa_data['Supply Capacity Added (MW)'] != 0 else 0
 
                 sc.add_source(ppa)
+                print("ppa source added to scenario")
 
             if solar_req:
                 solar = SolarSource(n, solar_priority)
@@ -222,6 +225,7 @@ def main():
                     solar.inputs[y]['count_prim_units'] = 1 if solar_data['Solar Capacity Added (MW)'] != 0 else 0
 
                 sc.add_source(solar)
+                print("solar source added to scenario")
 
             if wind_req:
                 wind = WindSource(n, wind_priority)
@@ -231,6 +235,7 @@ def main():
                     wind.inputs[y]['count_prim_units'] = wind_data['2MW Turbines Added']
 
                 sc.add_source(wind)
+                print("wind source added to scenario")
 
             if bess_req:
                 bess = BESSSource(n, 0)
@@ -240,6 +245,7 @@ def main():
                     bess.inputs[y]['count_prim_units'] = bess_data['0.5MWh BESS Units Added']
                 print(bess.inputs[4]['count_prim_units'])
                 sc.add_source(bess)
+                print("bess source added to scenario")
 
             if gas_gen_req and gas_priority > 0:
                 gas_gen = GasGenSource(n, gas_priority)
@@ -253,6 +259,7 @@ def main():
                     gas_gen.inputs[y]['fuel_eff'] = gas_data["Fuel Efficiency Rating"]
 
                 sc.add_source(gas_gen)
+                print("gas source added to scenario")
 
             if hfo_gen_req and hfo_priority > 0:
                 hfo_gen = HFOGenSource(n, hfo_priority)
@@ -265,6 +272,7 @@ def main():
                     hfo_gen.inputs[y]['fuel_eff'] = hfo_data["Fuel Efficiency Rating"]
 
                 sc.add_source(hfo_gen)
+                print("hfo source added to scenario")
 
             if tri_fuel_gen_req and tri_priority > 0:
                 trifuel_gen = TrifuelGenSource(n, tri_priority)
@@ -277,6 +285,9 @@ def main():
                     trifuel_gen.inputs[y]['perc_rated_output'] = tri_data['% of rated output after derating']
                     trifuel_gen.inputs[y]['fuel_eff'] = tri_data["Fuel Efficiency Rating"]
 
+                sc.add_source(trifuel_gen)
+                print("trifuel source added to scenario")
+
             if diesel_req and diesel_priority > 0:
                 diesel_gen = DieselGenSource(n, diesel_priority)
                 for year, diesel_data in diesel_gen_input_df.items():
@@ -285,28 +296,31 @@ def main():
                     diesel_gen.inputs[y]['rating_prim_units'] = diesel_data['Rating of Primary Units']
                     diesel_gen.inputs[y]['perc_rated_output'] = diesel_data['% of rated output after derating']
                     diesel_gen.inputs[y]['fuel_eff'] = diesel_data["Fuel Efficiency Rating"]
+                
+                sc.add_source(diesel_gen)
+                print("diesel source added to scenario")
 
             sc.generate_results()
             sc.generate_summaries()
 
             st.write("#### Summary Outcomes")
-            st.dataframe(sc.summary_df, hide_index=True)
+            st.dataframe(sc.summary_df.round(1), hide_index=True)
 
             st.write("#### Power Summary")
             st.write("###### Shown cases either have unserved demand or are randomly picked for each year")
-            st.dataframe(sc.power_summary_df, hide_index=True)
+            st.dataframe(sc.power_summary_df.round(1), hide_index=True)
 
             st.write("#### Energy Summary")
-            st.dataframe(sc.energy_summary_df, hide_index=True)
+            st.dataframe(sc.energy_summary_df.round(1), hide_index=True)
 
             st.write("#### CAPEX Summary")
-            st.dataframe(sc.capex_df, hide_index=True)
+            st.dataframe(sc.capex_df.round(1), hide_index=True)
 
             st.write("#### OPEX Summary")
-            st.dataframe(sc.opex_summary_df, hide_index=True)
+            st.dataframe(sc.opex_summary_df.round(1), hide_index=True)
 
             st.write("#### Emissions Summary")
-            st.dataframe(sc.emissions_summary_df, hide_index=True)
+            st.dataframe(sc.emissions_summary_df.round(1), hide_index=True)
 
 
             print("Now creating in memory excel file for download")

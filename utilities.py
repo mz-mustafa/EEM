@@ -144,7 +144,7 @@ sc = Scenario('','Pakistan Cables Limited','input_data.xlsx',n)
 
 
 #GRID CONFIG
-grid_source = GridSource(n,2)
+grid_source = GridSource(n,3)
 grid_source.inputs[0]['count_prim_units'] = 1
 grid_source.inputs[0]['rating_prim_units'] = 4.5
 
@@ -168,10 +168,11 @@ gas_gen_source = GasGenSource(n,1)
 gas_gen_source.inputs[0]['count_prim_units'] = 1
 gas_gen_source.inputs[0]['rating_prim_units'] = 1.5
 gas_gen_source.inputs[0]['perc_rated_output'] = 100
+gas_gen_source.inputs[0]['fuel_eff'] = 100
 
-gas_gen_source.inputs[3]['count_prim_units'] = 1
-gas_gen_source.inputs[3]['rating_prim_units'] = 2.0
-gas_gen_source.inputs[3]['perc_rated_output'] = 90
+#gas_gen_source.inputs[3]['count_prim_units'] = 1
+#gas_gen_source.inputs[3]['rating_prim_units'] = 2.0
+#gas_gen_source.inputs[3]['perc_rated_output'] = 90
 
 
 # Update chp_operation and gas_fuel_type values
@@ -197,6 +198,7 @@ hfo_gen_source = HFOGenSource(n,1)
 hfo_gen_source.inputs[1]['count_prim_units'] = 1
 hfo_gen_source.inputs[1]['rating_prim_units'] = 1.5
 hfo_gen_source.inputs[1]['perc_rated_output'] = 100
+hfo_gen_source.inputs[1]['fuel_eff'] = 100
 
 #Trifuel CONFIG
 tf_gen_source = TrifuelGenSource(n,1)
@@ -205,28 +207,34 @@ tf_gen_source = TrifuelGenSource(n,1)
 tf_gen_source.inputs[1]['count_prim_units'] = 1
 tf_gen_source.inputs[1]['rating_prim_units'] = 1.5
 tf_gen_source.inputs[1]['perc_rated_output'] = 100
-
+tf_gen_source.inputs[1]['fuel_eff'] = 100
 
 #DIESEL CONFIG
 dg_source = DieselGenSource(n,4)
 
 # Update the input structure for Year 1
 dg_source.inputs[1]['count_prim_units'] = 1
-dg_source.inputs[1]['rating_prim_units'] = 1
+dg_source.inputs[1]['rating_prim_units'] = 1.2
 dg_source.inputs[1]['perc_rated_output'] = 100
+dg_source.inputs[1]['fuel_eff'] = 100
+
+dg_source.inputs[4]['count_prim_units'] = 1
+dg_source.inputs[4]['rating_prim_units'] = 1.2
+dg_source.inputs[4]['perc_rated_output'] = 100
+dg_source.inputs[4]['fuel_eff'] = 100
 
 
 sc.add_source(grid_source)
 print(f"{sc.sources_dict['Grid'].source_type} added.")
 
-sc.add_source(ppa_source)
-print(f"{sc.sources_dict['PPA'].source_type} added.")
+#sc.add_source(ppa_source)
+#print(f"{sc.sources_dict['PPA'].source_type} added.")
 
 sc.add_source(solar_source)
 print(f"{sc.sources_dict['Solar'].source_type} added.")
 
-sc.add_source(gas_gen_source)
-print(f"{sc.sources_dict['Gas Generator'].source_type} added.")
+#sc.add_source(gas_gen_source)
+#print(f"{sc.sources_dict['Gas Generator'].source_type} added.")
 
 #sc.add_source(wind_source)
 #print(f"{sc.sources_dict['Wind'].source_type} added.")
@@ -243,6 +251,7 @@ print(f"{sc.sources_dict['BESS'].source_type} added.")
 
 sc.add_source(dg_source)
 print(f"{sc.sources_dict['Diesel Generator'].source_type} added.")
+
 
 sc.generate_results()
 sc.generate_summaries()
