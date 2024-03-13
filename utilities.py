@@ -6,7 +6,7 @@ import pandas as pd
 import os
 #import io
 from sources import GridSource, SolarSource, WindSource, GasGenSource, \
-    HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource, PPASource
+    HFOGenSource, TrifuelGenSource, BESSSource, DieselGenSource, PPASource, ExistingGasGenSource
 
 def has_duplicate_values(var_list):
     filtered_list = [item for item in var_list if item != -1]
@@ -149,7 +149,7 @@ grid_source.inputs[0]['count_prim_units'] = 1
 grid_source.inputs[0]['rating_prim_units'] = 4.5
 
 #PPA CONFIG
-ppa_source = PPASource(n,1)
+ppa_source = PPASource(n,0)
 ppa_source.inputs[1]['count_prim_units'] = 1
 ppa_source.inputs[1]['rating_prim_units'] = 2
 
@@ -170,14 +170,22 @@ gas_gen_source.inputs[0]['rating_prim_units'] = 1.5
 gas_gen_source.inputs[0]['perc_rated_output'] = 100
 gas_gen_source.inputs[0]['fuel_eff'] = 100
 
-#gas_gen_source.inputs[3]['count_prim_units'] = 1
-#gas_gen_source.inputs[3]['rating_prim_units'] = 2.0
-#gas_gen_source.inputs[3]['perc_rated_output'] = 90
-
-
 # Update chp_operation and gas_fuel_type values
 gas_gen_source.inputs['chp_operation'] = True
-gas_gen_source.inputs['gas_fuel_type'] = 'RLNG'
+gas_gen_source.inputs['fuel_type'] = 'RLNG'
+
+
+#EXISTING GAS CONFIG
+existing_gas_gen_source = ExistingGasGenSource(n,1)
+
+existing_gas_gen_source.inputs[2]['count_prim_units'] = 2
+existing_gas_gen_source.inputs[2]['rating_prim_units'] = 1
+existing_gas_gen_source.inputs[2]['perc_rated_output'] = 90
+existing_gas_gen_source.inputs[2]['fuel_eff'] = 90
+
+existing_gas_gen_source.inputs['chp_operation'] = True
+existing_gas_gen_source.inputs['fuel_type'] = 'NG'
+
 
 #BESS CONFIG
 bess_source = BESSSource(n,0)
@@ -233,8 +241,11 @@ print(f"{sc.sources_dict['Grid'].source_type} added.")
 sc.add_source(solar_source)
 print(f"{sc.sources_dict['Solar'].source_type} added.")
 
-#sc.add_source(gas_gen_source)
-#print(f"{sc.sources_dict['Gas Generator'].source_type} added.")
+sc.add_source(gas_gen_source)
+print(f"{sc.sources_dict['Gas Generator'].source_type} added.")
+
+sc.add_source(existing_gas_gen_source)
+print(f"{sc.sources_dict['Existing Gas Generators'].source_type} added.")
 
 #sc.add_source(wind_source)
 #print(f"{sc.sources_dict['Wind'].source_type} added.")

@@ -69,10 +69,10 @@ class Scenario:
     @staticmethod
     def available_sources(all_sources=True):
         if all_sources:
-            return ["Solar", "Wind", "Gas Generator", "HFO Generator",
+            return ["Solar", "Wind", "Gas Generator", "Existing Gas Generators","HFO Generator",
                     "HFO+Gas Generator", "PPA","Grid","Diesel Generator", "BESS"]
         else:
-            return ["Solar", "Wind", "Gas Generator", "HFO Generator",
+            return ["Solar", "Wind", "Gas Generator", "Existing Gas Generators","HFO Generator",
                     "HFO+Gas Generator", "PPA", "Grid","Diesel Generator"]
 
     @staticmethod
@@ -80,11 +80,11 @@ class Scenario:
         
         if include_backup:
 
-            return ["Gas Generator", "HFO Generator", "HFO+Gas Generator", 
-                    "PPA","Grid", "Diesel Generator"]
+            return ["Gas Generator", "Existing Gas Generators","HFO Generator", "HFO+Gas Generator", 
+                    "Grid", "Diesel Generator"]
         else:
-            return ["Gas Generator", "HFO Generator", "HFO+Gas Generator", 
-                    "PPA","Grid"]
+            return ["Gas Generator", "Existing Gas Generators","HFO Generator", "HFO+Gas Generator"
+                    ,"Grid"]
 
     @staticmethod
     def available_gas_types():
@@ -410,7 +410,7 @@ class Scenario:
                 critical_load = self.ip_load_data[year]['crit_load_prop'] * self.ip_load_data[year]['max_dem_load_day'] / 100
 
                 # Energy from renewables
-                for ren_src_name in ['Wind', 'Solar']:
+                for ren_src_name in ['Wind', 'Solar','PPA']:
 
                     if ren_src_name in self.sources_dict:
                         print(f"Finding {ren_src_name} energy")
@@ -576,7 +576,7 @@ class Scenario:
                     cooling_elect_load = 0
 
                     # Calculate Free Cooling
-                    for gen in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator']:
+                    for gen in ['Gas Generator', 'Existing Gas Generators','HFO Generator', 'HFO+Gas Generator']:
                         if gen in self.sources_dict:
                             _, total_cap = self.get_gen_pwr_ops(gen, 'PRIMARY', year)
                             free_cooling_output += total_cap * self.sources_dict[gen].meta.cooling_load_feeding_capability
@@ -603,8 +603,10 @@ class Scenario:
                         
                         src_name = src.source_type
 
-                        if src_name in ['Solar', 'Wind']:
+                        if src_name in ['Solar', 'Wind','PPA']:
                             output_potential = self.sources_dict[src_name].calc_output_power(year, month, hour)
+                        elif src_name == "BESS":
+                            continue
                         else:
                             _, output_potential = self.get_gen_pwr_ops(src_name, 'PRIMARY', year)
 
@@ -642,7 +644,13 @@ class Scenario:
                         yr_data['count_prim_units'] * yr_data['rating_prim_units']
                         for yr, yr_data in src.inputs.items() if isinstance(yr, int) and yr <= y
                     )
-                    if src_name != 'Grid' and src_name != 'PPA':
+                    if src_name == "Existing Gas Generators":
+                        if total_capacity > 0:
+                            src.outputs[y]['depreciation_cost'] = src.meta.existing_cap_cost / src.meta.useful_life
+                        else:
+                            src.outputs[y]['depreciation_cost'] = 0
+                    
+                    elif src_name != 'Grid' and src_name != 'PPA':
 
                         total_capex = sum([src.outputs[y]['capital_cost'] for y in range(y + 1)])
                         # Compute the annual depreciation
@@ -685,7 +693,7 @@ class Scenario:
                         month_data['PPA Energy Cost, M PKR'] = src_mnth_op['enr_charges'] / 1000000
 
                     # Calculate and save fuel costs
-                    if src_name in ['Gas Generator', 'HFO Generator', 'HFO+Gas Generator', 'Diesel Generator']:
+                    if src_name in ['Gas Generator', 'Existing Gas Generators','HFO Generator', 'HFO+Gas Generator', 'Diesel Generator']:
 
                         fuel_type = src.inputs['fuel_type']
                         fuel_data = fuel_tariff.get_tariff_and_inflation(fuel_type)
@@ -753,16 +761,11 @@ class Scenario:
                             src.outputs[y][m]['co2_emissions'] = \
                                 (src.outputs[y][m]['energy_output_peak'] +
                                 src.outputs[y][m]['energy_output_offpeak']) * src.meta.co2_emission
-                            
-                        elif src_name == 'PPA':
-                            src.outputs[y][m]['co2_emissions'] = \
-                                src.outputs[y][m]['energy_output_prim_units'] * src.meta.co2_emission
                         
                         elif src_name == 'HFO+Gas Generator':
                             fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['sec_fuel_type'])
                             src.outputs[y][m]['co2_emissions'] += src.outputs[y][m]['energy_output_prim_units_sec'] \
-                                                                * fuel_data['co2_emission']
-                        
+                                                                * fuel_data['co2_emission']            
                         else:
                             fuel_data = fuel_struct.get_tariff_and_inflation(src.inputs['fuel_type'])
                             src.outputs[y][m]['co2_emissions'] = src.outputs[y][m]['energy_output_prim_units'] \
@@ -778,24 +781,29 @@ class Scenario:
             for src in self.sources_list:
 
                 src_name = src.source_type
-                cap_cost_y_zero = src.meta.existing_cap_cost
-
+                
                 # Get the required values
                 count_prim_units = src.inputs[year]['count_prim_units']
                 rating_prim_units = src.inputs[year]['rating_prim_units']
                 cap_cost_baseline = src.meta.capital_cost_baseline
-
-                # Calculate the capital cost for this year and source
-                if year == 0:
-                    if count_prim_units == 0:
-                        capex = 0
-                    else:
-                        capex = cap_cost_y_zero
+                cap_cost_y_zero = src.meta.existing_cap_cost
+                capex = 0
+                if src_name == "Existing Gas Generators":
+                    if count_prim_units != 0:
+                        capex = src.meta.ingestion_cost * pow(1 + self.ip_site_data['capital_inflation_rate'], year)
                 else:
-                    capex = (count_prim_units * rating_prim_units * cap_cost_baseline
-                             * pow(1 + self.ip_site_data['capital_inflation_rate'], year))
 
-                # Store the calculated capex in the source's outputs structure
+                    # Calculate the capital cost for this year and source
+                    if year == 0:
+                        if count_prim_units == 0:
+                            capex = 0
+                        else:
+                            capex = cap_cost_y_zero
+                    else:
+                        capex = (count_prim_units * rating_prim_units * cap_cost_baseline
+                                * pow(1 + self.ip_site_data['capital_inflation_rate'], year))
+
+                    # Store the calculated capex in the source's outputs structure
                 src.outputs[year]['capital_cost'] = int(capex)
                 y_data[f'{src_name} CAPEX, M PKR'] = int(capex / 1000000)
             self.capex_df.append(y_data)

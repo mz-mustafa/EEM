@@ -100,6 +100,27 @@ class PPAMeta:
         self.opex_inflation_rate = sheet['C9'].value
         self.time_take_load_prim = sheet['C10'].value
         self.co2_emission = sheet['C11'].value
+        self.output_data = {}
+
+        sheet = workbook['solar']
+        # Monthly data
+        for row in range(6, 18):  # Rows 6 to 17 for months 1 to 12
+            month = row - 5
+            self.output_data[month] = {
+                'mnth_ener_op_per_MW': sheet.cell(row=row, column=2).value,  # Column B
+                'output_proportion_of_year': sheet.cell(row=row, column=3).value,  # Column C
+                'average_sun_available_hours': sheet.cell(row=row, column=4).value,  # Column D
+                'average_sun_unavailable_hours': sheet.cell(row=row, column=5).value  # Column E
+            }
+
+        # Hourly data for each month
+        current_row = 22
+        for month in range(1, 13):  # For each month from 1 to 12
+            for hour in range(1, 25):  # For each hour from 1 to 24
+                self.output_data[month][hour] = {
+                    'kw_pv_output_per_mw': sheet.cell(row=current_row, column=3).value  # Column C
+                }
+                current_row += 1  # Move to the next row
 
 class GridMeta:
     def __init__(self, input_file_path='input_data.xlsx', sheet_name='grid'):
@@ -171,6 +192,33 @@ class GasGenMeta():
         self.co2_emission = sheet['F19'].value
         self.degradation = sheet['F20'].value
         self.existing_cap_cost = sheet['F21'].value
+
+class ExistingGasGenMeta():
+
+     def __init__(self, input_file_path='input_data.xlsx', sheet_name='thermal_sources'):
+
+        wb = openpyxl.load_workbook(input_file_path, data_only=True)
+        sheet = wb[sheet_name]
+
+        self.operating_baseline = sheet['R4'].value
+        self.capital_cost_baseline = sheet['R5'].value
+        self.fixed_opex_baseline = sheet['R6'].value
+        self.var_opex_baseline = sheet['R7'].value
+        self.useful_life = sheet['R8'].value
+        self.current_running_hours = sheet['R9'].value
+        self.opex_inflation_rate = sheet['R10'].value
+        self.depreciation_rate = sheet['R11'].value
+        self.cooling_load_feeding_capability = sheet['R12'].value
+        self.min_loading = sheet['R13'].value
+        self.max_loading = sheet['R14'].value
+        self.num_failures_year = sheet['R15'].value
+        self.avg_failure_time = sheet['R16'].value
+        self.time_take_load_prim = sheet['R17'].value
+        self.time_take_load_backup = sheet['R18'].value
+        self.co2_emission = sheet['R19'].value
+        self.degradation = sheet['R20'].value
+        self.existing_cap_cost = sheet['R21'].value
+        self.ingestion_cost = sheet['R22'].value
 
 class HFOGenMeta():
 
