@@ -53,7 +53,7 @@ def main():
     if ppa_req:
 
         st.write("#### PPA Supply Parameters")
-        ppa_priority = st.selectbox("Source Priority to Feed Load:", priority_list, index = 1,key="ppa_priority")
+        #ppa_priority = st.selectbox("Source Priority to Feed Load:", priority_list, index = 1,key="ppa_priority")
         ppa_input = { f"Year {i}": { 'Supply Capacity Added (MW)': 0.0 }
                        for i in range(n+1) }
 
@@ -230,7 +230,7 @@ def main():
                 sc.add_source(grid)
                 print("Grid source added to scenario")
 
-            if ppa_req and ppa_priority > 0:
+            if ppa_req:
                 ppa = PPASource(n, ppa_priority)
                 for year, ppa_data in ppa_input_df.items():
                     y = int(re.search(r'\d+', year).group())
