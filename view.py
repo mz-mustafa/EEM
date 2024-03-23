@@ -27,14 +27,15 @@ def main():
     ppa_req = st.checkbox('PPA Supply')
     solar_req = st.checkbox('Solar PV')
     gas_gen_req = st.checkbox('Gas Generator')
-    existing_gas_gen_req = st.checkbox('Existing Gas Generators')
+    
     hfo_gen_req = st.checkbox('HFO Generator')
     tri_fuel_gen_req = st.checkbox('Tri-fuel FO+Gas generator')
     wind_req = st.checkbox('Wind')
     bess_req = st.checkbox('BESS')
     diesel_req = st.checkbox('Diesel Generator')
     priority_list = list(range(1,9))
-    grid_priority, gas_priority, existing_gas_priority, hfo_priority, tri_priority, diesel_priority = (-1,) * 6
+    grid_priority, gas_priority, hfo_priority, tri_priority, diesel_priority = (-1,) * 5
+    
     solar_priority, wind_priority, ppa_priority = (0,) * 3
     # Display Options based on toggles
     if grid_req:
@@ -107,29 +108,6 @@ def main():
         if all(gas_data['Qty of Primary Units'] == 0 for gas_data in gas_gen_input_df.values()):
             st.warning("All Primary Gas Genset quantities are zero. Please adjust or "
                        "remove Gas Generators from scenario. Note that Year 0 Quantities are current investment.")
-
-    if existing_gas_gen_req:
-            st.write("#### Existing Gas Generator Parameters: 2 x 1MW")
-            #gas_base_rating_pu = st.number_input("Base Power Rating in MW, per set:", step=0.05, key="gas_base_rating_pu")
-            #gas_chp_cooling = st.checkbox('CHP Operation with Absorption Chiller(s)?', key="gas_chp_cooling")
-            existing_gas_priority = st.selectbox("Source Priority to Feed Load:", priority_list, index = 0,key="existing_gas_priority")
-            existing_gas_fuel_type = st.selectbox("Choose Fuel type:", Scenario.available_gas_types(), key="existing_gas_fuel_type")
-
-            existing_gas_gen_input = {
-                f"Year {year}": {
-                    #"Qty of Primary Units": 0,
-                    #"Rating of Primary Units": 0.0,
-                    "% of rated output after derating": 100,
-                    "Fuel Efficiency Rating": 100
-                }
-                for year in range(n + 1)
-            }
-            existing_gas_gen_input_df = st.data_editor(gas_gen_input, key='gas_gen_input')
-
-            if all(existing_gas_data['Qty of Primary Units'] == 0 for existing_gas_data in existing_gas_gen_input_df.values()):
-                st.warning("All Existing Gas Genset quantities are zero. Please adjust or "
-                        "remove Existing Gas Generators from scenario. Note that Year 0 Quantities are current investment.")
-
 
     if hfo_gen_req:
         st.write("#### HFO Generator Parameters")
@@ -211,7 +189,7 @@ def main():
     # add the created sources to scenario
     if submit_button:
         print('Submit Button Pressed')
-        p_list = [grid_priority, ppa_priority, gas_priority, existing_gas_priority, hfo_priority, tri_priority, diesel_priority]
+        p_list = [grid_priority, ppa_priority, gas_priority, hfo_priority, tri_priority, diesel_priority]
         if has_duplicate_values(p_list):
             st.warning("Source priorities are not defined. You may have assigned the same priority to multiple" 
                        "sources. Please correst and submit the scenario again")
@@ -283,20 +261,6 @@ def main():
 
                 sc.add_source(gas_gen)
                 print("gas source added to scenario")
-
-            if existing_gas_gen_req and existing_gas_priority > 0:
-                existing_gas_gen = ExistingGasGenSource(n, existing_gas_priority)
-                existing_gas_gen.inputs['chp_operation'] = True
-                existing_gas_gen.inputs['gas_fuel_type'] = existing_gas_fuel_type
-                for year, existing_gas_data in existing_gas_gen_input_df.items():
-                    y = int(re.search(r'\d+', year).group())
-                    existing_gas_gen.inputs[y]['count_prim_units'] = 2
-                    existing_gas_gen.inputs[y]['rating_prim_units'] = 1
-                    existing_gas_gen.inputs[y]['perc_rated_output'] = existing_gas_data['% of rated output after derating']
-                    existing_gas_gen.inputs[y]['fuel_eff'] = existing_gas_data["Fuel Efficiency Rating"]
-
-                sc.add_source(existing_gas_gen)
-                print("existing gas source added to scenario")
 
             if hfo_gen_req and hfo_priority > 0:
                 hfo_gen = HFOGenSource(n, hfo_priority)

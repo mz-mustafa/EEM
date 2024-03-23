@@ -69,10 +69,10 @@ class Scenario:
     @staticmethod
     def available_sources(all_sources=True):
         if all_sources:
-            return ["Solar", "Wind", "Gas Generator", "Existing Gas Generators","HFO Generator",
+            return ["Solar", "Wind", "Gas Generator","HFO Generator",
                     "HFO+Gas Generator", "PPA","Grid","Diesel Generator", "BESS"]
         else:
-            return ["Solar", "Wind", "Gas Generator", "Existing Gas Generators","HFO Generator",
+            return ["Solar", "Wind", "Gas Generator", "HFO Generator",
                     "HFO+Gas Generator", "PPA", "Grid","Diesel Generator"]
 
     @staticmethod
@@ -80,10 +80,10 @@ class Scenario:
         
         if include_backup:
 
-            return ["Gas Generator", "Existing Gas Generators","HFO Generator", "HFO+Gas Generator", 
+            return ["Gas Generator","HFO Generator", "HFO+Gas Generator", 
                     "Grid", "Diesel Generator"]
         else:
-            return ["Gas Generator", "Existing Gas Generators","HFO Generator", "HFO+Gas Generator"
+            return ["Gas Generator","HFO Generator", "HFO+Gas Generator"
                     ,"Grid"]
 
     @staticmethod
@@ -576,7 +576,7 @@ class Scenario:
                     cooling_elect_load = 0
 
                     # Calculate Free Cooling
-                    for gen in ['Gas Generator', 'Existing Gas Generators','HFO Generator', 'HFO+Gas Generator']:
+                    for gen in ['Gas Generator','HFO Generator', 'HFO+Gas Generator']:
                         if gen in self.sources_dict:
                             _, total_cap = self.get_gen_pwr_ops(gen, 'PRIMARY', year)
                             free_cooling_output += total_cap * self.sources_dict[gen].meta.cooling_load_feeding_capability
