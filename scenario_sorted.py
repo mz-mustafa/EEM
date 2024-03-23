@@ -8,6 +8,11 @@ from source_meta import FuelTariff
 
 class Scenario:
     def __init__(self, name, client_name, input_file_path='input_data.xlsx', n=5):
+        self.rate = 0.05
+        self.num_sources = 0
+        self.total_emissions = 0
+        self.average_tariff = 0
+        self.total_capex_pv = 0
         self.name = name
         self.client_name = client_name
         self.timestamp = datetime.datetime.now()
@@ -59,6 +64,7 @@ class Scenario:
         self.gen_annual_opex_summary()
         self.gen_annual_opex_summary_concise()
         self.gen_annual_summary()
+        self.calculate_eval_metrics()
 
     def add_source(self, source):
 
@@ -932,3 +938,29 @@ class Scenario:
         selected_rows = group[group['Difference'] == min_difference]
         return selected_rows.sample(1)  # If there are multiple rows with the same minimum difference, pick a random one
 
+    def calculate_eval_metrics(self):
+        self.num_sources = len(self.sources_list)
+        self.total_emissions = self.emissions_summary_df.loc[:, self.emissions_summary_df.columns != 'year'].sum(axis=1).sum()
+
+        # Summing values in "OPEX, M PKR"
+        opex = self.summary_df["OPEX, M PKR"].sum()
+
+        # Summing values in "Energy Production, MWh"
+        enr = self.summary_df["Energy Production, MWh"].sum()
+
+        # Calculating average tariff
+        self.average_tariff = opex * 1000 / enr
+
+        capex_copy = self.capex_df.copy()
+
+        # Step 2: Sum the costs for each year to calculate a yearly total
+        # Exclude the 'year' column for the summation
+        yearly_totals = capex_copy.drop('year', axis=1).sum(axis=1)
+
+        # Step 3: Calculate the present value of each year's total capex
+        # Assuming 'year' column is the index or reset it to be the index
+        capex_copy.set_index('year', inplace=True) # Skip if 'year' is already the index
+        present_values = yearly_totals / ((1 + self.rate) ** capex_copy.index)
+
+        # Step 4: Sum all the present values to get total_capex_pv
+        self.total_capex_pv = present_values.sum()

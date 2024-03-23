@@ -1,3 +1,4 @@
+from zipfile import BadZipFile
 from scenario_sorted import Scenario
 from io import BytesIO
 from openpyxl import load_workbook
@@ -42,7 +43,10 @@ def get_dataframes_and_sheets(sc):
 
 def write_df_to_excel_sheet(df, sheet_name, file_name='outputs.xlsx'):
     # Load the workbook
-    book = load_workbook(file_name)
+    try:
+        book = load_workbook(file_name)
+    except BadZipFile as e:
+        print(f"Error opening file: {e}")
     if sheet_name in book.sheetnames:
         del book[sheet_name]
     book.save(file_name)

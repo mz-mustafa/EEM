@@ -304,6 +304,20 @@ def main():
             sc.generate_results()
             sc.generate_summaries()
 
+            col1, col2, col3, col4 = st.columns(4)
+
+            # KPI Titles and Values - Example Data
+            kpi_data = [
+                ("Average Tariff (Rs./kWh)", round(sc.average_tariff,1)), 
+                ("Present Value- CAPEX (M Rs.)", round(sc.total_capex_pv,1)),
+                ("Total CO2 Emissions (MT)", round(sc.total_emissions,1)),
+                ("Source Types Employed", sc.num_sources)
+                ]
+
+            # Create KPI Cards
+            for col, (title, value) in zip([col1, col2, col3, col4], kpi_data):
+                create_kpi_card(col, title, value)
+
             st.write("#### Summary Outcomes")
             st.dataframe(sc.summary_df.round(1), hide_index=True)
 
@@ -335,7 +349,7 @@ def main():
 
 def create_kpi_card(column, title, value):
     with column:
-        st.markdown(f"## {title}")
-        st.markdown(f"<h2 style='color: red;'>{value}</h2>", unsafe_allow_html=True)
+        st.markdown(f"##### {title}")
+        st.markdown(f"<h4 style='color: blue;'>{value}</h5>", unsafe_allow_html=True)
 
 main()
